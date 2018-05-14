@@ -9,9 +9,9 @@
 #include <sys/time.h>
 
 int main(int argc, char **argv) {
-    
+
     //daemon(0,0);
-    
+
     int pflag = 0, qflag=0, ret;
     
     while ((ret=getopt(argc, argv, "pq")) != -1)
@@ -21,10 +21,10 @@ int main(int argc, char **argv) {
             case '?': return 1;
             default: abort();
         }
-    if (pflag && !qflag) {
-        
-        fd_set readfds;
-        
+        if (pflag && !qflag) {
+
+            fd_set readfds;
+
         // tablica na loginy start
         char **users = (char**) malloc(10*sizeof(char*));   // max 10 userow
         int i;
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
         //
         int k;
         while (1) {
-            
+
             FD_ZERO(&readfds);
             
             FD_SET(sh, &readfds);
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
             
             activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
             if (FD_ISSET(sh, &readfds)) {
-                
+
                 ch=accept(sh, (struct sockaddr*)&ca, &caLen);
                 
                 
@@ -112,8 +112,6 @@ int main(int argc, char **argv) {
                 //     perror("send");
                 // }
                 
-                puts("Welcome message sent successfully");
-                
                 //add new socket to array of sockets
                 for (i = 0; i < 5; i++)
                 {
@@ -123,7 +121,6 @@ int main(int argc, char **argv) {
                         client_socket[i] = ch;
                         printf("Adding to list of sockets as %d\n" , i);
                         recv(ch, users[i], 19, 0);
-                        printf("Connected user: %s ", users[i]);
                         break;
                     }
                 }
@@ -165,7 +162,7 @@ int main(int argc, char **argv) {
                         //Somebody disconnected , get his details and print
                         int addrlen = sizeof(sa);
                         getpeername(sd , (struct sockaddr*)&sa , \
-                                    (socklen_t*)&addrlen);
+                            (socklen_t*)&addrlen);
                         printf("Host disconnected");
                         
                         //Close the socket and mark as 0 in list for reuse
@@ -179,19 +176,38 @@ int main(int argc, char **argv) {
                         //set the string terminating NULL byte on the end
                         //of the data read
                         //printf("server 1st %s  size: %lu \n", buffer, sizeof(buffer));
-                        char tosendBuf[60];
 
-                        strcpy(tosendBuf, users[i]);
-                        
-                        strcat(tosendBuf, " : ");
-                        strncat(tosendBuf, buffer, valread);
-
-                       // printf("sizeof: %lu valread: %d \n", sizeof(buffer), valread);
-                         buffer[valread+strlen(users[i]) + 2] = '\0';
                         int j;
 
-                        for (j = 0; j < 5; j++){
-                            send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
+
+
+                        char tosendBuf[60];
+
+                        if (strncmp(buffer, "/list", 5) == 0) {
+                            strcpy(tosendBuf, "Users online: ");
+                            for (j = 0; j <5; j++) {
+                                if (users[j] != 0)
+                                    strncat(tosendBuf, users[j], strlen(users[j]));
+                                    strncat(tosendBuf, " ", 1);
+                            }
+                            tosendBuf[strlen(tosendBuf)] = '\n';
+
+                            printf("%s", tosendBuf);
+                            send(client_socket[i] , tosendBuf , strlen(tosendBuf), 0 );
+                        }
+                        else {
+                            strcpy(tosendBuf, users[i]);
+
+                            strcat(tosendBuf, " : ");
+                            strncat(tosendBuf, buffer, valread);
+
+                       // printf("sizeof: %lu valread: %d \n", sizeof(buffer), valread);
+                            buffer[valread+strlen(users[i]) + 2] = '\0';
+
+
+                            for (j = 0; j < 5; j++){
+                                send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
+                            }
                         }
                         memset(tosendBuf, 0, sizeof(tosendBuf));
                     }
@@ -204,9 +220,9 @@ int main(int argc, char **argv) {
         free(users);
     }
     else if (!pflag && qflag) {
-        
+
     }
     else {
-        
+
     }
 }
