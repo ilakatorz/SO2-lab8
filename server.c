@@ -8,11 +8,97 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/poll.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <signal.h>
+#include <arpa/inet.h>
+
+
+int exists(char** argv)
+{
+    DIR *proc = opendir("/proc");
+    if(proc ==NULL)
+    {
+        printf("Opendir failed\n");
+        exit(1);
+    }
+    struct dirent *inProc= readdir(proc);
+    char prock[6] = "/proc/";
+    char* comm = malloc(sizeof(char)*5);
+    comm="/comm";
+    char* serv= malloc(sizeof(char)*6);
+    serv = "server";
+    char* self = malloc(sizeof(char)*4);
+    self = "self";
+    char* tself = malloc(sizeof(char)*11);
+    tself="thread-self";
+    
+    void* buff[6];
+    size_t nbyte=6;
+    int i;
+    pid_t myPID = getpid();
+    while(inProc)
+    {
+        char* file =malloc(strlen(prock)+strlen(comm)+strlen(inProc->d_name)*sizeof(char));
+        strcat(file, prock);
+        strcat(file, inProc->d_name);
+        strcat(file, comm);
+        int handle = open(file,O_RDONLY);
+        read(handle, buff, nbyte);
+        char* cmp = (char *) buff;
+        if(!strcmp(cmp,serv))
+        {
+            if((myPID != atoi(inProc->d_name)) && (strcmp(inProc->d_name,self) != 0) && (strcmp(inProc->d_name,tself)!=0))
+            {
+                printf("Found\n");
+                printf("%s\n", inProc->d_name);
+                kill(atoi(inProc->d_name),SIGKILL);
+                printf("Killed\n");
+                return 0;
+                
+            }
+        }
+        free(file);
+        close(handle);
+        inProc= readdir(proc);
+    }
+    free(serv);
+    free(self);
+    free(tself);
+    
+}
 
 int main(int argc, char **argv) {
 
     //daemon(0,0);
 
+    pid_t pid,sid;
+    int fd;
+    if(getppid() == 1) return 1; //is deamon alrready
+    pid = fork();
+    if(pid<0)
+        exit(EXIT_FAILURE);
+    if(pid>0)
+        exit(EXIT_SUCCESS);
+    
+    sid= setsid();
+    if(sid<0)
+        exit(EXIT_FAILURE);
+    if((chdir("/")) <0)
+        exit(EXIT_FAILURE);
+    fd = open("/dev/null", O_RDWR,0);
+    if(fd != -1)
+    {
+        dup2(fd, STDIN_FILENO);
+        dup2(fd,STDOUT_FILENO);
+        dup2(fd,STDERR_FILENO);
+        if(fd>2)
+            close(fd);
+    }
+    umask(0);
+    
     int pflag = 0, qflag=0, ret;
     
     while ((ret=getopt(argc, argv, "pq")) != -1)
@@ -247,7 +333,8 @@ int main(int argc, char **argv) {
         free(users);
     }
     else if (!pflag && qflag) {
-
+        exists(argv);
+        return 1;
     }
     else {
 
