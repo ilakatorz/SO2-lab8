@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <memory.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -194,6 +195,32 @@ int main(int argc, char **argv) {
 
                             printf("%s", tosendBuf);
                             send(client_socket[i] , tosendBuf , strlen(tosendBuf), 0 );
+                        }
+                        else if (strncmp(buffer, "/", 1) == 0) {
+                            printf("jest petla\n");
+                            char user_pw[19];
+                            char* pdest = memccpy( user_pw, buffer, ' ', 19);
+
+                            *pdest = '\0';
+                            printf("po memie: %s \n", user_pw);
+                            char* toCompare = user_pw;
+                            toCompare++;
+                            printf("to compare: %s", toCompare);
+
+                            strcpy(tosendBuf, users[i]);
+                            strcat(tosendBuf, " ||");
+                            strcat(tosendBuf, strchr(buffer, ' '));
+
+
+                            for (j = 0; j < 5; j++){
+
+                                if(strncmp(toCompare, users[j], strlen(users[j])) == 0) {
+                                    send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
+                                }
+                            }
+
+                            
+
                         }
                         else {
                             strcpy(tosendBuf, users[i]);
