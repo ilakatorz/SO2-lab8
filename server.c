@@ -1,19 +1,20 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <memory.h>
-#include <stdio.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/poll.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <signal.h>
-#include <arpa/inet.h>
+    #include <sys/socket.h>
+    #include <sys/types.h>
+    #include <unistd.h>
+    #include <memory.h>
+    #include <stdio.h>
+    #include <netinet/in.h>
+    #include <netdb.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <sys/time.h>
+    #include <sys/poll.h>
+    #include <sys/stat.h>
+    #include <sys/ioctl.h>
+    #include <fcntl.h>
+    #include <dirent.h>
+    #include <signal.h>
+    #include <arpa/inet.h>
 
 
 int exists(char** argv)
@@ -34,7 +35,7 @@ int exists(char** argv)
     self = "self";
     char* tself = malloc(sizeof(char)*11);
     tself="thread-self";
-    
+
     void* buff[6];
     size_t nbyte=6;
     int i;
@@ -57,7 +58,7 @@ int exists(char** argv)
                 kill(atoi(inProc->d_name),SIGKILL);
                 printf("Killed\n");
                 return 0;
-                
+
             }
         }
         free(file);
@@ -67,276 +68,271 @@ int exists(char** argv)
     free(serv);
     free(self);
     free(tself);
-    
+
 }
 
 int main(int argc, char **argv) {
 
-    //daemon(0,0);
+       
+ /* DAEMONIZING */
+    pid_t pid,
+    int foldie;
+        // DAEMONIZED ALREADY
+       // if(getppid() == 1) return 1; 
 
-    pid_t pid,sid;
-    int fd;
-    if(getppid() == 1) return 1; //is deamon alrready
-    pid = fork();
-    if(pid<0)
-        exit(EXIT_FAILURE);
-    if(pid>0)
-        exit(EXIT_SUCCESS);
-    
-    sid= setsid();
-    if(sid<0)
-        exit(EXIT_FAILURE);
-    if((chdir("/")) <0)
-        exit(EXIT_FAILURE);
-    fd = open("/dev/null", O_RDWR,0);
-    if(fd != -1)
-    {
-        dup2(fd, STDIN_FILENO);
-        dup2(fd,STDOUT_FILENO);
-        dup2(fd,STDERR_FILENO);
-        if(fd>2)
-            close(fd);
-    }
-    umask(0);
-    
-    int pflag = 0, qflag=0, ret;
-    
-    while ((ret=getopt(argc, argv, "pq")) != -1)
-        switch (ret) {
-            case 'p': pflag = 1; break;
-            case 'q': qflag = 1; break;
-            case '?': return 1;
-            default: abort();
-        }
-        if (pflag && !qflag) {
+        //TERMINATE PARENTS MAKE CHILD RUN IN THE BACK
+        pid = fork();
+        if(pid<0)
+            exit(EXIT_FAILURE);
+        if(pid>0)
+            exit(EXIT_SUCCESS);
+        
 
-            fd_set readfds;
+        //NEW SESSION
+        pid_t session_id= setsid();
+        if(session_id<0)
+            exit(EXIT_FAILURE);
 
-        // tablica na loginy start
-        char **users = (char**) malloc(10*sizeof(char*));   // max 10 userow
-        int i;
-        for(i = 0; i < 10; i++)
+        // CHANGE WORKING DIR OF DAEMON
+        if((chdir("/")) <0)
+            exit(EXIT_FAILURE);
+
+        // CLOSE FILE DESCRIPTORS
+        if(foldie = open("/dev/null", O_RDWR,0) != -1)
         {
-            users[i] = (char*) malloc(10*sizeof(char));       // login max 19 znakow
-            users[i][0] = 0;
+            dup2(foldie,STDOUT_FILENO);
+            
+            dup2(foldie, STDIN_FILENO);
+            dup2(foldie,STDERR_FILENO);
+            if(foldie>2)
+                close(foldie);
         }
-        
-        // tablica na loginy end
-        
-        char buffer[61];
-        
-        unsigned short PORT = atoi(argv[2]);
-        struct sockaddr_in sa, ca;
-        int caLen, sd, max_sd, activity;;
-        char msg[61];
-        int client_socket[5], ch, sh = socket(AF_INET, SOCK_STREAM, 0);
-        if(sh == -1){
-            perror("");
-            return 1;
-        }
-        
-        //        if( setsockopt(sh, SOL_SOCKET, SO_REUSEADDR, (char *)1,
-        //                       sizeof(1)) < 0 )
-        //        {
-        //            perror("setsockopt");
-        //            exit(EXIT_FAILURE);
-        //        }
-        
-        for (i = 0; i < 5; i++)
-        {
-            client_socket[i] = 0;
-        }
-        
-        sa.sin_family = AF_INET;
-        sa.sin_addr.s_addr = INADDR_ANY;
-        sa.sin_port = htons(PORT);
-        
-        
-        if(bind(sh, (struct sockaddr*)&sa, sizeof(sa)) < 0){
-            perror("");
-            return 2;
-        }
-        if(listen(sh, 5) == -1){
-            perror("");
-            return 3;
-        }
-        //
-        int k;
-        while (1) {
 
-            FD_ZERO(&readfds);
-            
-            FD_SET(sh, &readfds);
-            max_sd = sh;
-            
-            for ( i = 0 ; i < 5 ; i++)
+        // NEW FILE PERMISSIONS
+        umask(0);
+        
+/* DAEMONIZING END */
+
+        int pflag = 0, qflag=0, ret;
+        
+
+        // SERVER OPTIONS -P FOR RUN -Q FOR KILLL
+        while ((ret=getopt(argc, argv, "pq")) != -1) {
+            switch (ret) {
+                case 'p': pflag = 1; break;
+                case 'q': qflag = 1; break;
+                case '?': return 1;
+                default: abort();
+            }
+            if (pflag && !qflag) {
+
+                fd_set readfds;
+
+            // LOGIN TABLE START
+            char **users = (char**) malloc(10*sizeof(char*));   // MAX 10 USERS
+            int i;
+            for(i = 0; i < 10; i++)
             {
-                //socket descriptor
-                sd = client_socket[i];
-                
-                //if valid socket descriptor then add to read list
-                if(sd > 0)
-                    FD_SET( sd , &readfds);
-                
-                //highest file descriptor number, need it for the select function
-                if(sd > max_sd)
-                    max_sd = sd;
+                users[i] = (char*) malloc(10*sizeof(char));       //  NAME MAX 19 LONG
+                users[i][0] = 0;
             }
             
-            activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
-            if (FD_ISSET(sh, &readfds)) {
+            // LOGIN TABLE END
+            
+            char buffer[61];
+            
+            unsigned short PORT = atoi(argv[2]);
+            struct sockaddr_in sa, ca;
+            int caLen, sd, max_sd, activity;;
+            char msg[61];
 
-                ch=accept(sh, (struct sockaddr*)&ca, &caLen);
-                
-                
-                
-                //inform user of socket number - used in send and receive commands
-                printf("New connection");
-                
-                //send new connection greeting message
-                // if( send(ch, msg, strlen(msg), 0) != strlen(msg) )
-                // {
-                //     perror("send");
-                // }
-                
-                //add new socket to array of sockets
-                for (i = 0; i < 5; i++)
-                {
-                    //if position is empty
-                    if( client_socket[i] == 0 )
-                    {
-                        client_socket[i] = ch;
-                        printf("Adding to list of sockets as %d\n" , i);
-                        recv(ch, users[i], 19, 0);
-                        break;
-                    }
-                }
-                
-                //                k=recv(ch, msg, 100, 0);
-                //                if(k==-1)
-                //                {
-                //                    printf("Error in receiving");
-                //                    exit(1);
-                //                }
-                //
-                //                printf("Message got from client is : %s",msg);
-                //                printf("\nEnter data to be send to client: ");
-                //
-                //                //fgets(msg,100,stdin);
-                //                if(strncmp(msg,"end",3)==0)
-                //                    break;
-                //
-                //                k=send(ch,msg,100,0);
-                //                if(k==-1)
-                //                {
-                //                    printf("Error in sending");
-                //                    exit(1);
-                //                }
-                
+            /* CONFIG FOR SOCKET START */
+
+            //SWITCH THE 5 IF U HAVE MONEY
+            int client_socket[5], ch, sh = socket(AF_INET, SOCK_STREAM, 0);
+            if(sh == -1){
+                perror("");
+                return 1;
             }
-            //else its some IO operation on some other socket
+        
+            // HERE WE GET THE GUYS ID'S
             for (i = 0; i < 5; i++)
             {
-                sd = client_socket[i];
+                client_socket[i] = 0;
+            }
+            
+            sa.sin_family = AF_INET;
+            sa.sin_addr.s_addr = INADDR_ANY;
+            sa.sin_port = htons(PORT);
+            
+            
+            if(bind(sh, (struct sockaddr*)&sa, sizeof(sa)) < 0){
+                perror("");
+                return 2;
+            }
+            if(listen(sh, 5) == -1){
+                perror("");
+                return 3;
+            }
+            /* NOT THE END BUT MAINLY DONE */
+            int k;
+            while (1) {
+
+                //CLEAR SET
+                FD_ZERO(&readfds);
+
+                // ADD DESCRIPTOR TO A SET
+                FD_SET(sh, &readfds);
+                max_sd = sh;
                 
-                if (FD_ISSET( sd , &readfds))
+                for ( i = 0 ; i < 5 ; i++)
                 {
-                    int valread;
-                    //Check if it was for closing , and also read the
-                    //incoming message
-                    if ((valread = read( sd , buffer, 30)) == 0)
+                    //SAKET DESCRIPTOR
+                    sd = client_socket[i];
+                    
+                    //ADD TO READ LIST IF VALID DESCRIPTOR
+                    if(sd > 0)
+                        FD_SET( sd , &readfds);
+                    
+                    //the BIGGUER FD NR, FOR SELECT FUNC
+                    if(sd > max_sd)
+                        max_sd = sd;
+                }
+                
+                activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
+                if (FD_ISSET(sh, &readfds)) {
+
+                    ch=accept(sh, (struct sockaddr*)&ca, &caLen);
+                    
+                    
+                    
+                    //SOCKER NUMBER
+                    printf("New connection \n");
+                    
+                    
+                    // NEW SOCKET TO ARRAY OF SOCKETS
+                    for (i = 0; i < 5; i++)
                     {
-                        //Somebody disconnected , get his details and print
-                        int addrlen = sizeof(sa);
-                        getpeername(sd , (struct sockaddr*)&sa , \
-                            (socklen_t*)&addrlen);
-                        printf("Host disconnected");
-                        
-                        //Close the socket and mark as 0 in list for reuse
-                        close( sd );
-                        client_socket[i] = 0;
+                        //if position is empty
+                        if( client_socket[i] == 0 )
+                        {
+                            client_socket[i] = ch;
+                            printf("Adding to list of sockets as %d\n" , i);
+                            recv(ch, users[i], 19, 0);
+                            break;
+                        }
                     }
                     
-                    //Echo back the message that came in
-                    else
+                    
+                }
+                // HERE IF IN-OUT OPERATION ON OTHER SOCKET
+                for (i = 0; i < 5; i++)
+                {
+                    sd = client_socket[i];
+                    
+                    if (FD_ISSET( sd , &readfds))
                     {
-                        //set the string terminating NULL byte on the end
-                        //of the data read
-                        //printf("server 1st %s  size: %lu \n", buffer, sizeof(buffer));
+                        int valread;
+                        // WAS IT FOR CLOSING?
 
-                        int j;
-
-
-
-                        char tosendBuf[60];
-
-                        if (strncmp(buffer, "/list", 5) == 0) {
-                            strcpy(tosendBuf, "Users online: ");
-                            for (j = 0; j <5; j++) {
-                                if (users[j] != 0)
-                                    strncat(tosendBuf, users[j], strlen(users[j]));
-                                    strncat(tosendBuf, " ", 1);
-                            }
-                            tosendBuf[strlen(tosendBuf)] = '\n';
-
-                            printf("%s", tosendBuf);
-                            send(client_socket[i] , tosendBuf , strlen(tosendBuf), 0 );
+                        if ((valread = read( sd , buffer, 30)) == 0)
+                        {
+                            // SB GONNA OUT
+                            int addrlen = sizeof(sa);
+                            getpeername(sd , (struct sockaddr*)&sa , \
+                                (socklen_t*)&addrlen);
+                            printf("Host disconnected");
+                            
+                            // CLOSE SOCKET MAKE IT FREE FOR NEW GUYS
+                            close( sd );
+                            client_socket[i] = 0;
                         }
-                        else if (strncmp(buffer, "/", 1) == 0) {
-                            printf("jest petla\n");
-                            char user_pw[19];
-                            char* pdest = memccpy( user_pw, buffer, ' ', 19);
+                        
+                        // SCREAM BACK THE MESSAGE
+                        else
+                        {
 
-                            *pdest = '\0';
-                            printf("po memie: %s \n", user_pw);
-                            char* toCompare = user_pw;
-                            toCompare++;
-                            printf("to compare: %s", toCompare);
+                            int j;
 
-                            strcpy(tosendBuf, users[i]);
-                            strcat(tosendBuf, " ||");
-                            strcat(tosendBuf, strchr(buffer, ' '));
+                            char tosendBuf[60];
+
+                            // WHO IS INSIDE 
+                            if (strncmp(buffer, "/list", 5) == 0) {
+                                strcpy(tosendBuf, "Users online: ");
+                                for (j = 0; j <5; j++) {
+                                    if (users[j] != 0)
+                                        strncat(tosendBuf, users[j], strlen(users[j]));
+                                    strncat(tosendBuf, " ", 1);
+                                }
+                                tosendBuf[strlen(tosendBuf)] = '\n';
+
+                                printf("%s", tosendBuf);
+                                send(client_socket[i] , tosendBuf , strlen(tosendBuf), 0 );
+                            }
+
+                            // LET ME WHISPER TO YA
+                            else if (strncmp(buffer, "/", 1) == 0) {
+                                //printf("jest petla\n");
+                                char user_pw[19];
+                                char* pdest = memccpy( user_pw, buffer, ' ', 19);
+
+                                *pdest = '\0';
+                                // printf("po memie: %s \n", user_pw);
+                                char* toCompare = user_pw;
+                                toCompare++;
+                                // printf("to compare: %s", toCompare);
+
+                                strcpy(tosendBuf, users[i]);
+                                strcat(tosendBuf, " ||");
+                                strcat(tosendBuf, strchr(buffer, ' '));
 
 
-                            for (j = 0; j < 5; j++){
+                                for (j = 0; j < 5; j++){
 
-                                if(strncmp(toCompare, users[j], strlen(users[j])) == 0) {
+                                    if(strncmp(toCompare, users[j], strlen(users[j])) == 0) {
+                                        send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
+                                    }
+                                }
+
+                                
+                            // LETS TALK ABOUT BULLS*IT
+                            }
+                            else {
+                                strcpy(tosendBuf, users[i]);
+
+                                strcat(tosendBuf, " : ");
+                                strncat(tosendBuf, buffer, valread);
+
+                           // printf("sizeof: %lu valread: %d \n", sizeof(buffer), valread);
+                                buffer[valread+strlen(users[i]) + 2] = '\0';
+
+
+                                for (j = 0; j < 5; j++){
                                     send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
                                 }
                             }
-
-                            
-
+                            memset(tosendBuf, 0, sizeof(tosendBuf));
                         }
-                        else {
-                            strcpy(tosendBuf, users[i]);
-
-                            strcat(tosendBuf, " : ");
-                            strncat(tosendBuf, buffer, valread);
-
-                       // printf("sizeof: %lu valread: %d \n", sizeof(buffer), valread);
-                            buffer[valread+strlen(users[i]) + 2] = '\0';
-
-
-                            for (j = 0; j < 5; j++){
-                                send(client_socket[j] , tosendBuf , strlen(tosendBuf), 0 );
-                            }
-                        }
-                        memset(tosendBuf, 0, sizeof(tosendBuf));
                     }
                 }
             }
-        }
-        for(i = 0; i < 10; i++) {
-            free(users[i]);
-        } // usuwanie każdego elementu tabeli
-        free(users);
-    }
-    else if (!pflag && qflag) {
-        exists(argv);
-        return 1;
-    }
-    else {
+            for(i = 0; i < 10; i++) {
+                free(users[i]);
+            } // ALL ELEMENTS OUT
+            free(users);
 
-    }
+            
+        }
+            else if (!pflag && qflag) {
+
+            // KILL LIKE THANOS
+            exists(argv);
+            return 1;
+        }
+            else {
+
+            }
+
+        }
+
 }
