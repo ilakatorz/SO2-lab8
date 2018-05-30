@@ -17,65 +17,77 @@
     #include <arpa/inet.h>
 
 
-int exists(char** argv)
+int kill_living(char** argv)
 {
-    DIR *proc = opendir("/proc");
-    if(proc ==NULL)
-    {
-        printf("Opendir failed\n");
+    DIR *dir_proc = opendir("/proc");
+    if(dir_proc == NULL)
         exit(1);
-    }
-    struct dirent *inProc= readdir(proc);
-    char prock[6] = "/proc/";
+    
+    
+    char procPath[6] = "/proc/";
     char* comm = malloc(sizeof(char)*5);
     comm="/comm";
-    char* serv= malloc(sizeof(char)*6);
-    serv = "server";
-    char* self = malloc(sizeof(char)*4);
-    self = "self";
-    char* tself = malloc(sizeof(char)*11);
-    tself="thread-self";
+    
+    
+    struct dirent *intoP = readdir(dir_proc);
+    
+    char* path_part_thread = malloc(sizeof(char)*11);
+    path_part_thread="thread-self";
+    char* path_part_server= malloc(sizeof(char)*6);
+    path_part_server = "server";
+    char* path_part_self = malloc(sizeof(char)*4);
+    path_part_self = "self";
 
-    void* buff[6];
+    
     size_t nbyte=6;
-    int i;
+    void* bufferino[6];
+    
     pid_t myPID = getpid();
-    while(inProc)
+    int i;
+    
+    while(intoP)
     {
-        char* file =malloc(strlen(prock)+strlen(comm)+strlen(inProc->d_name)*sizeof(char));
-        strcat(file, prock);
-        strcat(file, inProc->d_name);
-        strcat(file, comm);
-        int handle = open(file,O_RDONLY);
-        read(handle, buff, nbyte);
-        char* cmp = (char *) buff;
-        if(!strcmp(cmp,serv))
-        {
-            if((myPID != atoi(inProc->d_name)) && (strcmp(inProc->d_name,self) != 0) && (strcmp(inProc->d_name,tself)!=0))
-            {
-                printf("Found\n");
-                printf("%s\n", inProc->d_name);
-                kill(atoi(inProc->d_name),SIGKILL);
-                printf("Killed\n");
-                return 0;
+        char* file =malloc(strlen(procPath)+strlen(comm)+strlen(intoP->d_name)*sizeof(char));
+        sprintf(file, "%s%s%s", procPath, intoP->d_name, comm);
 
+        int handle;
+        if(handle = open(file,O_RDONLY) == -1) {
+            printf("Open fail!\n");
+                exit(1);
+        }
+
+        if (read(handle, bufferino, nbyte) < 0) {
+         perror("Read Error");
+         exit(1);
+        }
+        ;
+        char* cmp = (char *) bufferino;
+        if(!strcmp(cmp,path_part_server))
+        {
+            if((myPID != atoi(intoP->d_name)))
+            {
+                if (strcmp(intoP->d_name,path_part_self) != 0) {
+                    if (strcmp(intoP->d_name,path_part_thread)!=0) {
+                        kill(atoi(intoP->d_name),SIGKILL);
+                        return 0;
+                    }
+                }   
             }
         }
         free(file);
         close(handle);
-        inProc= readdir(proc);
+        intoP= readdir(dir_proc);
     }
-    free(serv);
-    free(self);
-    free(tself);
-
+    free(path_part_server);
+    free(path_part_self);
+    free(path_part_thread);
 }
 
 int main(int argc, char **argv) {
 
        
  /* DAEMONIZING */
-    pid_t pid,
+    pid_t pid;
     int foldie;
         // DAEMONIZED ALREADY
        // if(getppid() == 1) return 1; 
@@ -326,7 +338,7 @@ int main(int argc, char **argv) {
             else if (!pflag && qflag) {
 
             // KILL LIKE THANOS
-            exists(argv);
+            kill_living(argv);
             return 1;
         }
             else {
